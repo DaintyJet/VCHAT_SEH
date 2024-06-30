@@ -1,0 +1,3 @@
+﻿cl : command line  warning D9025: overriding '/sdl' with '/GS-'
+  main.c
+  SEHOP-Standalone.vcxproj -> D:\Fu-Work\VChat\WinExploit-Priv\5-SEHOP\SRC\SEHOP-Standalone\Debug\SEHOP-Standalone.exe
