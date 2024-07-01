@@ -1,4 +1,6 @@
-# Structured Exception Handling and Valid Exception Chains with SEHOP
+# Structured Exception Handling and Validating Exception Chains with SEHOP
+*Notice*: Originally based off notes from [llan-OuO](https://github.com/llan-OuO).
+---
 >  Ensures the integrity of an exception chain during dispatch. - Microsoft
 
 Structured Exception Handling (SEH) is an extension to the C and C++ languages provided by Microsoft. This extension allows programmers to handle both hardware and software exceptions natively in C which does not normally have exception handling functionality. Although SEH may be used in C++ it is suggested by Microsoft that you use the ISO-Standard exception handling native to C++ due to some unexpected behavior related to class destructors not being called if you use SEH [5].
