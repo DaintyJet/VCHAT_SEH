@@ -22,7 +22,7 @@ typedef struct _EXCEPTION_REGISTRATION_RECORD
 } EXCEPTION_REGISTRATION_RECORD, *PEXCEPTION_REGISTRATION_RECORD; /* size: 0x0010 */
 ```
 > [!NOTE]
-> Note the annotated sizes are for a 64-bit system as the [referenced](https://github.com/ntdiff/headers/blob/master/Win10_1507_TS1/x64/System32/hal.dll/Standalone/_EXCEPTION_REGISTRATION_RECORD.h) code is pertaining to a possibly 64-bit Windows-10 system, in a 32-bit system each pointer takes only 4-bytes rather than the 8-bytes a pointer in a 64-bit system would occupy. When an exception occurs, the OS will walk through the SEH chain and try to find a proper SEH that can handle the exception.
+> The annotated sizes are for a 64-bit system as the [referenced](https://github.com/ntdiff/headers/blob/master/Win10_1507_TS1/x64/System32/hal.dll/Standalone/_EXCEPTION_REGISTRATION_RECORD.h) code is pertaining to a possibly 64-bit Windows-10 system, in a 32-bit system each pointer takes only 4-bytes rather than the 8-bytes a pointer in a 64-bit system would occupy. When an exception occurs, the OS will walk through the SEH chain and try to find a proper SEH that can handle the exception.
 >
 > You can also find a reference in [1].
 
