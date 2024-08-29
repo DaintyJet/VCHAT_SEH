@@ -399,7 +399,7 @@ We will be using the [VChat](https://github.com/xinwenfu/vchat) vulnerable chat 
    * Notice how it did not find any valid pointers!
 8. Retry the [VChat_GMON_SEH](https://github.com/DaintyJet/VChat_GMON_SEH) exploit, Does the exploit work? You can set a breakpoint at the SEH gadget it used previously to be sure of this as it should never reach that breakpoint!
 
-   <video controls src="Videos/V1F.mp4" title="Title"></video>
+  https://github.com/user-attachments/assets/6529a16d-b8f9-432b-bb93-535de35753bb
 
 > [!IMPORTANT]
 > We can bypass SafeSEH if the address we are targeting is in a module that does not have SafeSEH enabled as shown earlier. This is the fatal flaw with SafeSEH, and one of the reasons SEHOP is suggested over SafeSEH.
