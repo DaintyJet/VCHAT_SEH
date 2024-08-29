@@ -374,6 +374,35 @@ Using the `dumpbin` command line tool, we can examine the *Safe Exception Handle
 
 5. Recompile the program with the `/SAFESEH:NO` flag. Can you find the *Safe Exception Handler Table*?
 
+## SafeSEH and VChat
+We will be using the [VChat](https://github.com/xinwenfu/vchat) vulnerable chat server to show the effects of SafeSEH, and show one of it's fatal flaws which has cause Microsoft to suggest the use of SEHOP over SafeSEH where possible.
+
+1. Open the Visual Studio project for VChat.
+2. In `Project` -> `Properties` navigate to the `Linker` configuration options
+
+    <img src="Images/V1.png">
+
+3. In the `Advanced` options page enable SafeSEH.
+
+    <img src="Images/V2.png">
+
+4. Compile VChat, and attach it to Immunity Debugger.
+5. Exploit this newly compiled version of VChat with the [VChat_GMON_SEH](https://github.com/DaintyJet/VChat_GMON_SEH) programs or Metasploit module. Does the exploit still work? Yes! 
+
+   * The exploit continues to work, as the SEH gadget we are targeting resides in a module (essfunc.dll) which is **not** compiled with SafeSEH.
+
+6. Now open the Essfunc DLL Visual Studio Project and recompile it with SafeSEH enabled. Remember to copy this new DLL file into the same directory VChat is located in otherwise it will not make use of it and will instead use the old DLL.
+7. Relaunch VChat in Immunity Debugger and run the command we use to search for SEH Gadgets: `!mona seh -cp nonull -cm safeseh=off -o` do you see anything?
+
+    <img src="Images/V3.png">
+
+   * Notice how it did not find any valid pointers!
+8. Retry the [VChat_GMON_SEH](https://github.com/DaintyJet/VChat_GMON_SEH) exploit, Does the exploit work? You can set a breakpoint at the SEH gadget it used previously to be sure of this as it should never reach that breakpoint!
+
+   <video controls src="Videos/V1F.mp4" title="Title"></video>
+
+> [!IMPORTANT]
+> We can bypass SafeSEH if the address we are targeting is in a module that does not have SafeSEH enabled as shown earlier. This is the fatal flaw with SafeSEH, and one of the reasons SEHOP is suggested over SafeSEH.
 ## References
 [[1] Preventing the Exploitation of Structured Exception Handler (SEH) Overwrites with SEHOP](https://msrc-blog.microsoft.com/2009/02/02/preventing-the-exploitation-of-structured-exception-handler-seh-overwrites-with-sehop/)
 
