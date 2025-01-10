@@ -10,10 +10,10 @@ There are two common protections applied to SEH chains: SafeSEH, which we discus
 
 
 ## Structured Exception Handler
-SEH is Windows' exception handling mechanism used in C programs; this is implemented using a singly-linked list of SEH `_EXCEPTION_REGISTRATION_RECORD`S on the stack. This singly linked list is known as the SEH chain, and each exception registration record corresponds to one exception that can be handled in the current process thread. Each `_EXCEPTION_REGISTRATION_RECORD` contains two elements: a *NEXT* pointer, which contains the address of the next `_EXCEPTION_REGISTRATION_RECORD`, and a pointer *Handler* that contains the address of the exception handler, which is a function pointer that tells the program what code should be executed when the exception corresponding to this record is raised. Each of these SEH records is stored on the stack, which, considering we have been discussing stack-based buffer overflows, should be concerning. 
+SEH is Windows' exception handling mechanism used in C programs; this is implemented using a singly-linked list of SEH `_EXCEPTION_REGISTRATION_RECORD`s on the stack. This singly linked list is known as the SEH chain, and each exception registration record corresponds to one exception that can be handled in the current process thread. Each `_EXCEPTION_REGISTRATION_RECORD` contains two elements: a *NEXT* pointer, which contains the address of the next `_EXCEPTION_REGISTRATION_RECORD`, and a pointer *Handler* that contains the address of the exception handler, which is a function pointer that tells the program what code should be executed when the exception corresponding to this record is raised. Each of these SEH records is stored on the stack, which, considering we have been discussing stack-based buffer overflows, should be concerning.
 
 
-Below is the structure of a SEH `_EXCEPTION_REGISTRATION_RECORD`. As mentioned before, this is stored on the stack of the currently executing thread. In a 32-bit process, each of the pointers contained within is 4 bytes; in a 64-bit process, each pointer is 8 bytes. 
+Below is the structure of a SEH `_EXCEPTION_REGISTRATION_RECORD`. As mentioned before, this is stored on the stack of the currently executing thread. In a 32-bit process, each of the pointers contained within is 4 bytes; in a 64-bit process, each pointer is 8 bytes.
 
 ```
 typedef struct _EXCEPTION_REGISTRATION_RECORD
@@ -39,9 +39,9 @@ This handler can return one of the *Filter Expression* values described in [14].
 >
 > ```
 >   CDECL ExceptionHandler (
->      EXCEPTION_RECORD* ExceptionRecord, 
->      EXCEPTION_REGISTRATION* EstablisherFrame, 
->      CONTEXT* ContextRecord, 
+>      EXCEPTION_RECORD* ExceptionRecord,
+>      EXCEPTION_REGISTRATION* EstablisherFrame,
+>      CONTEXT* ContextRecord,
 >      DISPATCHER_CONTEXT* DispatcherContext
 >   );
 > ```
@@ -62,7 +62,7 @@ typedef struct _EXCEPTION_RECORD {
 
 When an SEH entry is used to resolve an exception, the system will place the `EstablisherFrame` argument, which based on the structure of the SEH chain is the second argument on the stack (Next SEH), and this will be placed onto the stack at `ESP+8` [11], this is why we use the SEH Gadget `POP POP RET` as our *Handler*; additionally the code for the *Handler* must not be located on the stack [15].
 
-The first entry of the SEH Chain is contained in the Thread Information Block (TIB), also known as the Thread Environment Block (TEB), if we are in a 32-bit process. Below is the structure contained at the start of each (TEB), which has the first SEH entry, which we start our search at. This
+The first entry of the SEH Chain is contained in the Thread Information Block (TIB), also known as the Thread Environment Block (TEB), if we are in a 32-bit process. Below is the structure contained at the start of each (TEB), which has the first SEH entry, which we start our search at.
 ```c
 typedef struct _NT_TIB
 {
@@ -80,7 +80,7 @@ typedef struct _NT_TIB
 } NT_TIB, *PNT_TIB;
 ```
 > [!NOTE]
-> This is not a particularly well-documented structure when it comes to official Microsoft sources. So there are a few external sources [6][7][8][9], and even an official repository for using Rust to develop for Microsoft [10] which reference this structure. 
+> This is not a particularly well-documented structure when it comes to official Microsoft sources. So there are a few external sources [6][7][8][9], and even an official repository for using Rust to develop for Microsoft [10] which reference this structure.
 
 The **last entry** in the chain has a *Next* pointer that consists of all `0xF`. This means in a 32-bit process, the final entry will have a next pointer consisting of the address `0xFFFFFFFF`. This means our SEH chain will on its own have the following structure:
 
@@ -95,10 +95,10 @@ The **last entry** in the chain has a *Next* pointer that consists of all `0xF`.
 
 One of the protections Microsoft developed to mitigate the vulnerabilities of SEH is *Structured Exception Handling Overwrite Protection* (SEHOP). This mitigation technique does not require any modification to the binaries of an executable. Instead, this mitigation adds additional runtime checks to the exception dispatcher. When SEHOP is enabled, the exception dispatcher verifies the integrity of a thread's exception chain in two steps [1]:
 
-- When the processes is loaded and a thread starts executing a *symbolic exception registration* record is inserted at the end of the chain. Specifically this occurs when a thread starts to execute in the *user mode*.
+- When the processes is loaded and a thread starts executing a *symbolic exception registration* record is inserted at the end of the chain. Specifically this occurs when a thread starts to execute in *user mode*.
 - When an exception occurs in *user-mode* and the exception dispatcher is notified, it will walk through the SEH chain's linked list to determine if it can reach the symbolic record at the final entry of the SEH chain. If this symbolic entry cannot be reached, the SEH chain is considered to be corrupted and then the exception dispatcher will terminate the process.
 
-Below is a diagram to illustrate how SEHOP works. As the stack grows from a high address to a low address, and the Next pointer is allocated *above* the Handler pointer in the SEH record, in order to overwrite the Handler and control the EIP when an exception is raised, we must first overwrite the Next pointer. This breaks the SEH chain, and we can no longer reach the *symbolic exception registration*  unless we overwrite the next pointer with the original address contained within; therefore, if we use the `POP POP RETN` gadget to take full control of the EIP as discussed previously even if we were to overwrite the Next pointer with its original value this would not help us gain control over the system since we would be loading the original Next pointer value into the EIP register leading to a crashed system state. We may be able to use a `POP POP POP RETN` gadget if one exists instead.
+Below is a diagram to illustrate how SEHOP works. As the stack grows from a high address to a low address, and the Next pointer is allocated *above* the Handler pointer in the SEH record, in order to overwrite the Handler and control the EIP when an exception is raised, we must first overwrite the Next pointer. This breaks the SEH chain, and we can no longer reach the *symbolic exception registration*  unless we overwrite the next pointer with the original address contained within; therefore, if we use the `POP POP RETN` gadget to take full control of the EIP as discussed previously even if we were to overwrite the next pointer with its original value this would not help us gain control over the system since we would be loading the original next pointer value into the EIP register leading to a crashed system state. We may be able to use a `POP POP POP RETN` gadget if one exists instead.
 
 <img src="Images/SEHOP_Chain.png">
 
@@ -114,11 +114,11 @@ As this is a system-wide setting, there are multiple ways to enable and disable 
 
    <img src="Images/SE1.png">
 
-2. Access the Security Settings Page and *Open Windows Security*
+2. Access the Security Settings Page and *Open Windows Security*.
 
    <img src="Images/SE2.png">
 
-3. Access the *App & Browser Control*
+3. Access the *App & Browser Control*.
 
    <img src="Images/SE3.png">
 
@@ -171,7 +171,7 @@ This section explores SEHOP using a standalone program. We will examine the beha
 
    <img src="Images/SA7.png">
 
-11. Click Run again. You should be prompted for user input in the terminal Immunity Debugger opened when the program was attached/launched. Provide some kind of user input in the terminal. As we will be using the debugger to manually edit the stack values in this example program, the contents of the input do not matter too much. However, since this does take user input, we could write a program to inject shellcode.
+11. Click run again. You should be prompted for user input in the terminal Immunity Debugger opened when the program was attached/launched. Provide some kind of user input in the terminal. As we will be using the debugger to manually edit the stack values in this example program, the contents of the input do not matter too much. However, since this does take user input, we could write a program to inject shellcode.
 
    <img src="Images/SA8.png">
 
@@ -185,8 +185,8 @@ This section explores SEHOP using a standalone program. We will examine the beha
 
    <img src="Images/SA10.png">
 
-   * This will be used as a target rather than the default handler. In this case, I chose the function epilog of the main function
-2. Place this address in the `SE Handler` entry for the local SEH handler. We do this by right-clicking and selecting *Modify* on the entry in the stack view. Input the Hexadecimal address of the instruction. (Save this address for future use)
+   * This will be used as a target rather than the default handler. In this case, I chose the function epilog of the main function.
+2. Place this address in the `SE Handler` entry for the local SEH handler. We do this by right-clicking and selecting *Modify* on the entry in the stack view. Input the Hexadecimal address of the instruction. (Save this address for future use).
 
    <img src="Images/SA11.png">
 
@@ -236,7 +236,7 @@ This section explores SEHOP using a standalone program. We will examine the beha
 
    <img src="Images/SA15.png">
 
-8.  Pass the exception to the program with `Shift + f7` or one of the other keybinds offered. 
+8.  Pass the exception to the program with `Shift + f7` or one of the other keybinds offered.
 
    <img src="Images/SA21.png">
 
@@ -253,7 +253,7 @@ This section explores SEHOP using a standalone program. We will examine the beha
 
 
 > [!IMPORTANT]
-> To see this behavior, you can simply replace the `Pointer to Next SEH Record` with a random value. It does not even need to be the SEH entry we are overwriting. If we overwrite the `Pointer to Next SEH Record` of a later SEH record, the check will still fail. (SEHOP requires the entire chain of `Pointer to Next SEH Record` be preserved)
+> To see this behavior, you can simply replace the `Pointer to Next SEH Record` with a random value. It does not even need to be the SEH entry we are overwriting. If we overwrite the `Pointer to Next SEH Record` of a later SEH record, the check will still fail. (SEHOP requires the entire chain of `Pointer to Next SEH Record` be preserved).
 ## VChat Exploration
 As we will be enabling a system-wide setting, we will not be affecting the VChat code itself, in order to explore the effects this option has of VChat you should do the following.
 
@@ -261,7 +261,7 @@ As we will be enabling a system-wide setting, we will not be affecting the VChat
 2. Preform the [SEH Exploit on the GMON command](https://github.com/DaintyJet/VChat_GMON_SEH) with SEHOP Enabled.
 
 ## SafeSEH
-SafeSEH is a mitigation strategy that can be applied to applications to help mitigate overflows that leverage the SEH chin to gain control over the flow of execution. Unlike SEHOP, this mitigation is applied on a per-application basis at compiled time as this mitigation generates a table of valid exception handlers the SEH Entries can contain. At the time of writing, there is no way to generate this table for a program to use once the application binary has been generated. As SafeSEH can only be applied to programs at compile time, this means we cannot protect already existing programs unless we re-compile them with SafeSEH enabled. Additionally, its inability to protect handlers that point to external functions or modules that do not support SafeSEH is an additional limitation. This is why SafeSEH, although powerful, is considered to be a weaker protection than SEHOP due to these limitations. 
+SafeSEH is a mitigation strategy that can be applied to applications to help mitigate overflows that leverage the SEH chin to gain control over the flow of execution. Unlike SEHOP, this mitigation is applied on a per-application basis at compiled time as this mitigation generates a table of valid exception handlers the SEH Entries can contain. At the time of writing, there is no way to generate this table for a program to use once the application binary has been generated. As SafeSEH can only be applied to programs at compile time, this means we cannot protect already existing programs unless we re-compile them with SafeSEH enabled. Additionally, its inability to protect handlers that point to external functions or modules that do not support SafeSEH is an additional limitation. This is why SafeSEH, although powerful, is considered to be a weaker protection than SEHOP due to these limitations.
 
 The SafeSEH table is generated by the linker during the compilation process, per the Microsoft reference [16] this relies on using the C standard library. If you are not using the C standard library you can include the following code [16]:
 ```c
@@ -324,38 +324,38 @@ const IMAGE_LOAD_CONFIG_DIRECTORY32_2 _load_config_used = {
 ```
 
 This has the following structures and functions:
-* `#include <windows.h>`: This includes the references and structures for the Windows API. 
+* `#include <windows.h>`: This includes the references and structures for the Windows API.
 * `extern DWORD_PTR __security_cookie;  /* /GS security cookie */`: External reference to the function used to interact with security cookies (Stack).
-* `extern PVOID __safe_se_handler_table[];`: External reference to a table containing addresses (void*) to valid SEH Exception handlers. 
+* `extern PVOID __safe_se_handler_table[];`: External reference to a table containing addresses (void*) to valid SEH Exception handlers.
 * `extern BYTE  __safe_se_handler_count;`: External reference to a variable containing the number of entries in the SafeSEH table.
 * `typedef struct {...} IMAGE_LOAD_CONFIG_DIRECTORY32_2`: Defines the IMAGE_LOAD_CONFIG_DIRECTORY32_2 structure. This appears to be a subset of the [IMAGE_LOAD_CONFIG_DIRECTORY32](https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-image_load_config_directory32) structure.
-* `const IMAGE_LOAD_CONFIG_DIRECTORY32_2 _load_config_used`: Initializes the previously defined structure. 
+* `const IMAGE_LOAD_CONFIG_DIRECTORY32_2 _load_config_used`: Initializes the previously defined structure.
 
 ## Compiling with SafeSEH
 As this is a compiler option enabled on a per-process basis, there is no system-level option. We enabled this using a *compiler flag* in the command line directly or enabling this in the *project properties* in Visual Studio. You can **only** use SafeSEH with programs compiled for the x86 32-bit architecture. By default, when a program is compiled, if all *code segments* are compatible with SafeSEH, then a table of valid exception handlers will be emitted by the compiler [16]. If any one code segment does not support SafeSEH, then unless the `/SAFESEH` flag is specified, the safe exception table will not be emitted [16].
 
 > [!NOTE]
-> According to Microsoft [16], the most common reason for a code segment to not support SafeSEH is the code in the object files being compiled with a different version of the Visual Studio C/C++ Compiler. 
+> According to Microsoft [16], the most common reason for a code segment to not support SafeSEH is the code in the object files being compiled with a different version of the Visual Studio C/C++ Compiler.
 
 When we specify the `/SAFESEH` flag with the linker, then the linker will produce an image that contains a table of the image's exception handlers. If the linker cannot produce this table then the build process will fail [16]. If we use the `/SAFESEH:NO` flag then the resulting image will not contain the table of valid exception handlers regardless of whether the code segments support SafeSEH or not [16]. The [MASM](https://learn.microsoft.com/en-us/cpp/assembler/masm/masm-for-x64-ml64-exe?view=msvc-170) assembler uses the `.SAFESEH` modifier to register a function as a valid exception handler [17].
 
 1. Open a Visual Studio project like the [SEHOP-Standalone](./SRC/SEHOP-Standalone/SEHOP-Standalone.sln) project.
-2. Open the *Properties* windows of the Visual Studio project
+2. Open the *Properties* windows of the Visual Studio project.
 
     <img src="Images/SAF1.png">
 
-3. Open `Linker` -> `Advanced` and modify the *Image Has Safe Exception Handlers* option
+3. Open `Linker` -> `Advanced` and modify the *Image Has Safe Exception Handlers* option.
 
     <img src="Images/SAF2.png">
 
-4. Re-build the project
+4. Re-build the project.
 
 > [!NOTE]
 > You can use the [*msvc*](https://learn.microsoft.com/en-us/cpp/build/reference/compiling-a-c-cpp-program?view=msvc-170) compiler through the command line tool `cl` and the linker with `link`. Using the `/SAFESEH` flag with the linker, we can generate an executable with the SafeSEH table.
 
 
 ## Examine SafeSeh
-Using the `dumpbin` command line tool, we can examine the *Safe Exception Handler* table of an image that has been created with the `/SAFESEH` compiler flag. 
+Using the `dumpbin` command line tool, we can examine the *Safe Exception Handler* table of an image that has been created with the `/SAFESEH` compiler flag.
 
 1. Open the *Developer Powershell for VS 2022*.
 
@@ -368,7 +368,7 @@ Using the `dumpbin` command line tool, we can examine the *Safe Exception Handle
     dumpbin /LOADCONFIG <file>.exe
     ```
 
-4. Examine the *Safe Exception Handler Table*
+4. Examine the *Safe Exception Handler Table*.
 
     <img src="Images/SAF4.png">
 
@@ -378,7 +378,7 @@ Using the `dumpbin` command line tool, we can examine the *Safe Exception Handle
 We will be using the [VChat](https://github.com/xinwenfu/vchat) vulnerable chat server to show the effects of SafeSEH, and show one of it's fatal flaws which has cause Microsoft to suggest the use of SEHOP over SafeSEH where possible.
 
 1. Open the Visual Studio project for VChat.
-2. In `Project` -> `Properties` navigate to the `Linker` configuration options
+2. In `Project` -> `Properties` navigate to the `Linker` configuration options.
 
     <img src="Images/V1.png">
 
@@ -387,7 +387,7 @@ We will be using the [VChat](https://github.com/xinwenfu/vchat) vulnerable chat 
     <img src="Images/V2.png">
 
 4. Compile VChat, and attach it to Immunity Debugger.
-5. Exploit this newly compiled version of VChat with the [VChat_GMON_SEH](https://github.com/DaintyJet/VChat_GMON_SEH) programs or Metasploit module. Does the exploit still work? Yes! 
+5. Exploit this newly compiled version of VChat with the [VChat_GMON_SEH](https://github.com/DaintyJet/VChat_GMON_SEH) programs or Metasploit module. Does the exploit still work? Yes!
 
    * The exploit continues to work, as the SEH gadget we are targeting resides in a module (essfunc.dll) which is **not** compiled with SafeSEH.
 
